@@ -27,9 +27,9 @@ TemplateMatcher::TemplateMatcher(ros::NodeHandle& nh, std::string& matching_fram
     icp_client_ = matcher_nh_.serviceClient<rail_mesh_icp::ICPMatch>("/icp_match_clouds");
 
     // visualization publishers
-    pub_temp_ = pnh.advertise<sensor_msgs::PointCloud2>("template_points",0);
-    pub_targ_ = pnh.advertise<sensor_msgs::PointCloud2>("target_points",0);
-    pub_mtemp_ = pnh.advertise<sensor_msgs::PointCloud2>("matched_template_points",0);
+    pub_temp_ = pnh.advertise<sensor_msgs::PointCloud2>("/template_matcher/template_points",0);
+    pub_targ_ = pnh.advertise<sensor_msgs::PointCloud2>("/template_matcher/target_points",0);
+    pub_mtemp_ = pnh.advertise<sensor_msgs::PointCloud2>("/template_matcher/matched_points",0);
 
     // creates service handler for template matching
     pose_srv_ = pnh.advertiseService("match_template", &TemplateMatcher::handle_match_template, this);
@@ -117,7 +117,7 @@ bool TemplateMatcher::handle_match_template(rail_mesh_icp::TemplateMatch::Reques
     double template_matching_error = icp_srv.response.match_error;
 
     // calculates the final estimated tf in the matching frame
-    tf::Transform tf_final = icp_refinement * initial_estimate * template_offset_;
+    tf::Transform tf_final = icp_refinement.inverse() * initial_estimate * template_offset_;
 
     // prepares the service response
     tf::Vector3 final_trans = tf_final.getOrigin();
