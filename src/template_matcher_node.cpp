@@ -18,12 +18,12 @@ int main(int argc, char** argv){
     bool latched = true;
     bool pre_processed_cloud = false;
 
-    std::string template_file_path = ros::package::getPath("rail_mesh_icp") + "/cad_models/" + "corner.pcd";
+    std::string template_files_path = ros::package::getPath("rail_mesh_icp") + "/cad_models/";
 
     // gets roslaunch params
     pnh.getParam("matching_frame", matching_frame);
     pnh.getParam("pcl_topic", pcl_topic);
-    pnh.getParam("template_file_path", template_file_path);
+    pnh.getParam("template_files_path", template_files_path);
     pnh.getParam("initial_estimate_string", initial_estimate_string);
     pnh.getParam("template_offset_string", template_offset_string);
     pnh.getParam("template_frame", template_frame);
@@ -66,7 +66,7 @@ int main(int argc, char** argv){
     ICPMatcher icp_matcher(nh, iters, dist, trans, fit);
 
     // starts a template matcher
-    TemplateMatcher matcher(pnh,matching_frame,pcl_topic,template_file_path,initial_estimate,template_offset,template_frame,
+    TemplateMatcher matcher(pnh,matching_frame,pcl_topic,template_files_path,initial_estimate,template_offset,template_frame,
                             visualize,debug,latched,pre_processed_cloud, icp_matcher);
 
     ros::spin();

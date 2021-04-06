@@ -7,6 +7,8 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <actionlib/server/action_server.h>
 
+///#include <thread_pool.hpp>
+#include "rail_mesh_icp/ThreadPool.h"
 #include "rail_mesh_icp/ICPMatching.h"
 #include "rail_mesh_icp/MatchTemplateAction.h"
 
@@ -29,7 +31,7 @@ class TemplateMatcher {
         tf::TransformListener tf_;
         tf::Transform initial_estimate_;
         tf::Transform template_offset_;
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud_;
+        std::vector<std::pair<std::string, pcl::PointCloud<pcl::PointXYZRGB>::Ptr>> template_clouds_;
         bool viz_;
         bool debug_;
         bool latched_initial_estimate_;
@@ -39,7 +41,11 @@ class TemplateMatcher {
         ros::Publisher pub_mtemp_;
         const ICPMatcher& icp_matcher_;
 
+        ThreadPool thread_pool_;
+        //thread_pool thread_pool_;
         actionlib::ActionServer<rail_mesh_icp::MatchTemplateAction> as_;
 
         tf2_ros::StaticTransformBroadcaster static_broadcaster;
+
+        void matchTemplate(MatchTemplateActionServer::GoalHandle goal_handle);
 };
