@@ -6,9 +6,11 @@ find_package(PCL REQUIRED 1.8 REQUIRED COMPONENTS common io)
 find_package(catkin REQUIRED COMPONENTS
   message_generation
   roscpp
+  actionlib
   pcl_ros
   pcl_conversions
   tf2_ros
+  actionlib_msgs
   geometry_msgs
   sensor_msgs
   std_msgs
@@ -21,11 +23,19 @@ add_service_files(
   TemplateMatch.srv
 )
 
+
+add_action_files(
+  DIRECTORY action
+  FILES
+  MatchTemplate.action
+)
+
 generate_messages(
   DEPENDENCIES
-  std_msgs
+  actionlib_msgs
   geometry_msgs
   sensor_msgs
+  std_msgs
 )
 
 catkin_package(
@@ -49,11 +59,11 @@ set(LINK_LIBS
 )
 
 # compiles cpp nodes
-add_executable(icp_matcher_node src/icp_matcher_node.cpp src/ICPMatching.cpp)
-add_dependencies(icp_matcher_node ${catkin_EXPORTED_TARGETS} ${PCL_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
-target_link_libraries(icp_matcher_node ${LINK_LIBS})
+#add_executable(icp_matcher_node src/icp_matcher_node.cpp src/ICPMatching.cpp)
+#add_dependencies(icp_matcher_node ${catkin_EXPORTED_TARGETS} ${PCL_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
+#target_link_libraries(icp_matcher_node ${LINK_LIBS})
 
-add_executable(template_matcher_node src/template_matcher_node.cpp src/TemplateMatching.cpp)
+add_executable(template_matcher_node src/template_matcher_node.cpp src/TemplateMatching.cpp src/ICPMatching.cpp)
 add_dependencies(template_matcher_node ${catkin_EXPORTED_TARGETS} ${PCL_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 target_link_libraries(template_matcher_node ${LINK_LIBS})
 
@@ -66,7 +76,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
   FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
 )
 
-install(TARGETS icp_matcher_node mesh_sampler_node
+install(TARGETS template_matcher_node mesh_sampler_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

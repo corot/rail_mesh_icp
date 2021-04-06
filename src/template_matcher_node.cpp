@@ -52,21 +52,24 @@ int main(int argc, char** argv){
     template_offset.setOrigin(tf::Vector3(offset[0],offset[1],offset[2]));
     template_offset.setRotation(tf::Quaternion(offset[4],offset[5],offset[3]));
 
-    // starts a template matcher
-    TemplateMatcher matcher(nh,matching_frame,pcl_topic,template_file_path,initial_estimate,template_offset,template_frame,
-                            visualize,debug,latched,pre_processed_cloud);
+    // loads ICP params
+    int iters = 50;
+    float dist = 1.0;
+    float trans = 1e-8;
+    float fit = 1e-8;
+    pnh.getParam("icp_matcher/iterations",iters);
+    pnh.getParam("icp_matcher/max_distance",dist);
+    pnh.getParam("icp_matcher/trans_epsilon",trans);
+    pnh.getParam("icp_matcher/fit_epsilon",fit);
 
-    try{
-        ros::Rate loop_rate(5);
-        while (ros::ok())
-        {
-            ros::spinOnce();
-            loop_rate.sleep();
-        }
-    }catch(std::runtime_error& e){
-        ROS_ERROR("template_matcher_node exception: %s", e.what());
-        return -1;
-    }
+    // start the ICP matcher
+    ICPMatcher icp_matcher(nh, iters, dist, trans, fit);
+
+    // starts a template matcher
+    TemplateMatcher matcher(pnh,matching_frame,pcl_topic,template_file_path,initial_estimate,template_offset,template_frame,
+                            visualize,debug,latched,pre_processed_cloud, icp_matcher);
+
+    ros::spin();
 
     return 0;
 }

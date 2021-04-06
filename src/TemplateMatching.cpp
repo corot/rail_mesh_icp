@@ -1,10 +1,12 @@
 #include "rail_mesh_icp/TemplateMatching.h"
 
-TemplateMatcher::TemplateMatcher(ros::NodeHandle& nh, std::string& matching_frame, std::string& pcl_topic,
+TemplateMatcher::TemplateMatcher(ros::NodeHandle& pnh, std::string& matching_frame, std::string& pcl_topic,
                                  std::string& template_file_path, tf::Transform& initial_estimate,
                                  tf::Transform& template_offset, std::string& template_frame, bool visualize,
-                                 bool debug, bool latch, bool pre_processed_cloud) {
-    matcher_nh_ = nh;
+                                 bool debug, bool latch, bool pre_processed_cloud, const ICPMatcher& icp_matcher)
+               : icp_matcher_(icp_matcher),
+                 as_(pnh, "match_template", boost::bind(&TemplateMatcher::matchTemplateGoalCB, this, _1), false)
+{
     matching_frame_ = matching_frame;
     pcl_topic_ = pcl_topic;
     pre_processed_cloud_ = pre_processed_cloud;
@@ -14,7 +16,6 @@ TemplateMatcher::TemplateMatcher(ros::NodeHandle& nh, std::string& matching_fram
     template_frame_ = template_frame;
     debug_ = debug;
     viz_ = visualize;
-    ros::NodeHandle pnh("~");
 
     // loads template cloud
     template_cloud_ = boost::make_shared<pcl::PointCloud<pcl::PointXYZRGB>>();
@@ -23,19 +24,32 @@ TemplateMatcher::TemplateMatcher(ros::NodeHandle& nh, std::string& matching_fram
         exit(-1);
     }
 
-    // creates service client to request ICP matches
-    icp_client_ = matcher_nh_.serviceClient<rail_mesh_icp::ICPMatch>("/icp_match_clouds");
-
     // visualization publishers
     pub_temp_ = pnh.advertise<sensor_msgs::PointCloud2>("/template_matcher/template_points",0);
     pub_targ_ = pnh.advertise<sensor_msgs::PointCloud2>("/template_matcher/target_points",0);
     pub_mtemp_ = pnh.advertise<sensor_msgs::PointCloud2>("/template_matcher/matched_points",0);
 
     // creates service handler for template matching
-    pose_srv_ = pnh.advertiseService("match_template", &TemplateMatcher::handle_match_template, this);
+    //pose_srv_ = pnh.advertiseService("match_template", &TemplateMatcher::handle_match_template, this);
+    //as_.registerGoalCallback();
+    ///as_.registerPreemptCallback(boost::bind(&TemplateMatcher::preemptCB, this));
+ /// boost::bind(&TemplateMatcher::matchTemplateGoalCB, this)
+    as_.start();
 }
 
-bool TemplateMatcher::handle_match_template(rail_mesh_icp::TemplateMatch::Request& req, rail_mesh_icp::TemplateMatch::Response& res) {
+void TemplateMatcher::matchTemplateGoalCB(MatchTemplateActionServer::GoalHandle goal_handle)
+{
+  const rail_mesh_icp::MatchTemplateGoal& goal = *goal_handle.getGoal();
+
+//  goal_handle.setAccepted();
+
+  ROS_ERROR_STREAM("   >>>   MATCH " << ros::this_node::getName() << " STARTED   "<<goal.target_cloud.height << "   " <<goal.target_cloud.width
+                   << "   "<<   goal_handle.isValid() << "   "<<   (int)goal_handle.getGoalStatus().status);
+   // rail_mesh_icp::MatchTemplateGoal goal = *as_.acceptNewGoal();
+    goal_handle.setAccepted();
+  ROS_ERROR_STREAM( "               "<<   (int)goal_handle.getGoalStatus().status);
+    rail_mesh_icp::MatchTemplateResult result;
+
     // declare data structures
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr target_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr matched_template_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -44,7 +58,7 @@ bool TemplateMatcher::handle_match_template(rail_mesh_icp::TemplateMatch::Reques
     if (latched_initial_estimate_) {
         initial_estimate = initial_estimate_;
     } else {
-        tf::transformMsgToTF(req.initial_estimate,initial_estimate);
+        tf::transformMsgToTF(goal.initial_estimate,initial_estimate);
     }
 
     // prepares point cloud for matching by transforming by initial_estimate
@@ -66,12 +80,13 @@ bool TemplateMatcher::handle_match_template(rail_mesh_icp::TemplateMatch::Reques
                 target_cloud_msg = *sharedMsg;
             } else {
                 ROS_ERROR("Could not get point cloud message from topic. Boost shared pointer is NULL.");
-                return false;
+                goal_handle.setAborted(result, "Could not get point cloud message from topic");
+                return;
             }
         }
     } else {
         // gets pre-processed point cloud from template match request
-        target_cloud_msg = req.target_cloud;
+        target_cloud_msg = goal.target_cloud;
     }
     pcl::fromROSMsg(target_cloud_msg,*target_cloud);
 
@@ -96,25 +111,25 @@ bool TemplateMatcher::handle_match_template(rail_mesh_icp::TemplateMatch::Reques
     }
 
     // makes ICP request
-    rail_mesh_icp::ICPMatch icp_srv;
-    icp_srv.request.template_cloud = template_msg;
-    icp_srv.request.target_cloud = target_msg;
-    if (!icp_client_.call(icp_srv)) {
+    sensor_msgs::PointCloud2 matched_msg;
+    geometry_msgs::Transform match_tf;
+    double template_matching_error;
+    if (!icp_matcher_.matchClouds(template_msg, target_msg, matched_msg, match_tf, template_matching_error)) {
         ROS_ERROR("Failed to call ICP service.");
-        return false;
+        goal_handle.setAborted(result, "Failed to call ICP service");
+        return;
     }
 
     // gets service results
-    pcl::fromROSMsg(icp_srv.response.matched_template_cloud,*matched_template_cloud);
+    pcl::fromROSMsg(matched_msg,*matched_template_cloud);
     tf::Transform icp_refinement;
-    icp_refinement.setOrigin(tf::Vector3(icp_srv.response.match_tf.translation.x,
-                                         icp_srv.response.match_tf.translation.y,
-                                         icp_srv.response.match_tf.translation.z));
-    icp_refinement.setRotation(tf::Quaternion(icp_srv.response.match_tf.rotation.x,
-                                              icp_srv.response.match_tf.rotation.y,
-                                              icp_srv.response.match_tf.rotation.z,
-                                              icp_srv.response.match_tf.rotation.w));
-    double template_matching_error = icp_srv.response.match_error;
+    icp_refinement.setOrigin(tf::Vector3(match_tf.translation.x,
+                                         match_tf.translation.y,
+                                         match_tf.translation.z));
+    icp_refinement.setRotation(tf::Quaternion(match_tf.rotation.x,
+                                              match_tf.rotation.y,
+                                              match_tf.rotation.z,
+                                              match_tf.rotation.w));
 
     // calculates the final estimated tf in the matching frame
     tf::Transform tf_final = icp_refinement.inverse() * initial_estimate * template_offset_;
@@ -141,12 +156,14 @@ bool TemplateMatcher::handle_match_template(rail_mesh_icp::TemplateMatch::Reques
     }
     if (debug_)
     {
-        sensor_msgs::PointCloud2 matched_template_msg = icp_srv.response.matched_template_cloud;
+        sensor_msgs::PointCloud2 matched_template_msg = matched_msg;
         matched_template_msg.header.frame_id = matching_frame_;
         pub_mtemp_.publish(matched_template_msg);
     }
 
-    res.template_pose = final_pose_stamped;
-    res.match_error = template_matching_error;
-    return true;
+  result.template_pose = final_pose_stamped;
+  result.match_error = template_matching_error;
+  goal_handle.setSucceeded(result, "Template successfully matched");
+
+  ROS_WARN_STREAM("   <<<   MATCH " << ros::this_node::getName() << " DONE");
 }
