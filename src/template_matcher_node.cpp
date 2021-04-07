@@ -1,3 +1,4 @@
+#include <tf/tf.h>
 #include <ros/ros.h>
 #include <ros/package.h>
 
@@ -57,13 +58,13 @@ int main(int argc, char** argv){
     float dist = 1.0;
     float trans = 1e-8;
     float fit = 1e-8;
-    pnh.getParam("icp_matcher/iterations",iters);
-    pnh.getParam("icp_matcher/max_distance",dist);
-    pnh.getParam("icp_matcher/trans_epsilon",trans);
-    pnh.getParam("icp_matcher/fit_epsilon",fit);
+    pnh.getParam("iterations",iters);
+    pnh.getParam("max_distance",dist);
+    pnh.getParam("trans_epsilon",trans);
+    pnh.getParam("fit_epsilon",fit);
 
     // start the ICP matcher
-    ICPMatcher icp_matcher(nh, iters, dist, trans, fit);
+    ICPMatcher icp_matcher(iters, dist, trans, fit);
 
     // starts a template matcher
     TemplateMatcher matcher(pnh,matching_frame,pcl_topic,template_files_path,initial_estimate,template_offset,template_frame,

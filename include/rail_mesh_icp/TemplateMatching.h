@@ -1,13 +1,14 @@
-#include <ros/time.h>
-#include <pcl/io/ply_io.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <ros/ros.h>
 
 #include <geometry_msgs/Transform.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <tf2_ros/static_transform_broadcaster.h>
 #include <actionlib/server/action_server.h>
 
-///#include <thread_pool.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+
+#include <pcl_conversions/pcl_conversions.h>
+
 #include "rail_mesh_icp/ThreadPool.h"
 #include "rail_mesh_icp/ICPMatching.h"
 #include "rail_mesh_icp/MatchTemplateAction.h"
@@ -28,7 +29,8 @@ class TemplateMatcher {
         std::string matching_frame_;
         std::string template_frame_;
         std::string pcl_topic_;
-        tf::TransformListener tf_;
+        tf2_ros::Buffer tf_;
+        tf2_ros::TransformListener tf_listener_;
         tf::Transform initial_estimate_;
         tf::Transform template_offset_;
         std::vector<std::pair<std::string, pcl::PointCloud<pcl::PointXYZRGB>::Ptr>> template_clouds_;
@@ -40,9 +42,8 @@ class TemplateMatcher {
         ros::Publisher pub_targ_;
         ros::Publisher pub_mtemp_;
         const ICPMatcher& icp_matcher_;
-
         ThreadPool thread_pool_;
-        //thread_pool thread_pool_;
+
         actionlib::ActionServer<rail_mesh_icp::MatchTemplateAction> as_;
 
         tf2_ros::StaticTransformBroadcaster static_broadcaster;

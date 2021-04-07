@@ -1,60 +1,40 @@
+#include <pcl_ros/transforms.h>
 #include <pcl/registration/transformation_estimation_2D.h>
 #include <pcl/registration/icp_nl.h>
-#include <pcl/registration/transformation_estimation_lm.h>
 #include <pcl/registration/warp_point_rigid_3d.h>
 
 #include "rail_mesh_icp/ICPMatching.h"
 
-ICPMatcher::ICPMatcher(ros::NodeHandle& nh, int iters, float dist, float trans, float fit) {
-    matcher_nh_ = nh;
+ICPMatcher::ICPMatcher(int iters, float dist, float trans, float fit) {
     iters_ = iters;
     dist_ = dist;
     trans_ = trans;
     fit_ = fit;
 }
 
-bool ICPMatcher::matchClouds(const sensor_msgs::PointCloud2& template_cloud_msg,
-                             const sensor_msgs::PointCloud2& target_cloud_msg,
-                             sensor_msgs::PointCloud2& matched_cloud_msg,
+bool ICPMatcher::matchClouds(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& template_cloud,
+                             const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& target_cloud,
+                             pcl::PointCloud<pcl::PointXYZRGB>::Ptr& matched_template_cloud,
                              geometry_msgs::Transform& match_tf, double& match_error) const
 {
-    // prepare datastructures
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr target_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr matched_template_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    // Pass a 2D TransformationEstimation to the ICP algorithm
     pcl::registration::TransformationEstimation2D<pcl::PointXYZRGB, pcl::PointXYZRGB>::Ptr
       te2D(new pcl::registration::TransformationEstimation2D<pcl::PointXYZRGB, pcl::PointXYZRGB>);
 
-    // loads points clouds
-    pcl::fromROSMsg(template_cloud_msg, *template_cloud);
-    pcl::fromROSMsg(target_cloud_msg, *target_cloud);
-
-//
-//  pcl::registration::WarpPointRigid3D<pcl::PointXYZRGB, pcl::PointXYZRGB>::Ptr warp_fcn
-//    (new pcl::registration::WarpPointRigid3D<pcl::PointXYZRGB, pcl::PointXYZRGB>);
-//
-//  // Create a TransformationEstimationLM object, and set the warp to it
-//  pcl::registration::TransformationEstimationLM<pcl::PointXYZRGB, pcl::PointXYZRGB>::Ptr te(
-//    new pcl::registration::TransformationEstimationLM<pcl::PointXYZRGB, pcl::PointXYZRGB>);
-//  te->setWarpFunction (warp_fcn);
-
-
-  // prepare ICP
+    // prepare ICP
     pcl::IterativeClosestPointNonLinear<pcl::PointXYZRGB,pcl::PointXYZRGB> icp;
     icp.setInputSource(target_cloud);
     icp.setInputTarget(template_cloud);
     icp.setMaximumIterations(iters_);
     icp.setMaxCorrespondenceDistance(dist_);
     icp.setTransformationEpsilon(trans_);
-//    icp.setUseReciprocalCorrespondences(true);
+    icp.setUseReciprocalCorrespondences(false);
     icp.setRANSACOutlierRejectionThreshold(dist_/2.0);
     icp.setEuclideanFitnessEpsilon(fit_);
     icp.setTransformationEstimation(te2D);
 
-  // Pass the TransformationEstimation objec to the ICP algorithm
-//  icp.setTransformationEstimation (te);
-
     // perform ICP to refine template pose
+    matched_template_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
     try {
         icp.align(*matched_template_cloud);
     } catch (...) {
@@ -65,8 +45,6 @@ bool ICPMatcher::matchClouds(const sensor_msgs::PointCloud2& template_cloud_msg,
     double fitness_score = icp.getFitnessScore();
     ROS_DEBUG("Clouds matched with error %f.", fitness_score);
 
-    // prepares the response to the service request
-    pcl::toROSMsg(*matched_template_cloud, matched_cloud_msg);
     tf::Transform tf_refinement = tf::Transform(tf::Matrix3x3(icp_tf(0,0),icp_tf(0,1),icp_tf(0,2),
                                                               icp_tf(1,0),icp_tf(1,1),icp_tf(1,2),
                                                               icp_tf(2,0),icp_tf(2,1),icp_tf(2,2)),
