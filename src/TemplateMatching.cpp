@@ -31,8 +31,8 @@ TemplateMatcher::TemplateMatcher(ros::NodeHandle& pnh, std::string& matching_fra
       {
         std::string template_name = template_file.path().stem().string();
         ROS_INFO_STREAM(" - " << template_name);
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr template_cloud = boost::make_shared<pcl::PointCloud<pcl::PointXYZRGB>>();
-        if (pcl::io::loadPCDFile<pcl::PointXYZRGB>(template_file.path().string(), *template_cloud) < 0)
+        PointCloudT::Ptr template_cloud = boost::make_shared<PointCloudT>();
+        if (pcl::io::loadPCDFile<PointT>(template_file.path().string(), *template_cloud) < 0)
         {
           ROS_WARN_STREAM("Could not load template PCD " << template_file.path());
         }
@@ -63,7 +63,7 @@ void TemplateMatcher::matchTemplate(MatchTemplateActionServer::GoalHandle goal_h
     rail_mesh_icp::MatchTemplateResult result;
 
     // declare data structures
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr target_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    PointCloudT::Ptr target_cloud(new PointCloudT);
 
     tf::Transform initial_estimate;
     if (latched_initial_estimate_) {
@@ -106,7 +106,7 @@ void TemplateMatcher::matchTemplate(MatchTemplateActionServer::GoalHandle goal_h
 
     std::vector<double> match_errors(template_clouds_.size());
     std::vector<geometry_msgs::Transform> match_tfs(template_clouds_.size());
-    std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> match_clouds(template_clouds_.size());
+    std::vector<PointCloudT::Ptr> match_clouds(template_clouds_.size());
 
     // Call ICP matching with the target pointcloud for all templates in parallel
     #pragma omp parallel for    // NOLINT
@@ -115,7 +115,7 @@ void TemplateMatcher::matchTemplate(MatchTemplateActionServer::GoalHandle goal_h
       const auto& template_cloud = template_clouds_[i].second;
 
       // prepares point cloud for matching by transforming by initial_estimate
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr _transformed_template_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+      PointCloudT::Ptr _transformed_template_cloud(new PointCloudT);
       pcl_ros::transformPointCloud(*template_cloud, *_transformed_template_cloud, initial_estimate);
 
       // make ICP request

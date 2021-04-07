@@ -12,17 +12,17 @@ ICPMatcher::ICPMatcher(int iters, float dist, float trans, float fit) {
     fit_ = fit;
 }
 
-bool ICPMatcher::matchClouds(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& template_cloud,
-                             const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& target_cloud,
-                             pcl::PointCloud<pcl::PointXYZRGB>::Ptr& matched_template_cloud,
+bool ICPMatcher::matchClouds(const PointCloudT::ConstPtr& template_cloud,
+                             const PointCloudT::ConstPtr& target_cloud,
+                             PointCloudT::Ptr& matched_template_cloud,
                              geometry_msgs::Transform& match_tf, double& match_error) const
 {
     // Pass a 2D TransformationEstimation to the ICP algorithm
-    pcl::registration::TransformationEstimation2D<pcl::PointXYZRGB, pcl::PointXYZRGB>::Ptr
-      te2D(new pcl::registration::TransformationEstimation2D<pcl::PointXYZRGB, pcl::PointXYZRGB>);
+    pcl::registration::TransformationEstimation2D<PointT, PointT>::Ptr
+      te2D(new pcl::registration::TransformationEstimation2D<PointT, PointT>);
 
     // prepare ICP
-    pcl::IterativeClosestPointNonLinear<pcl::PointXYZRGB,pcl::PointXYZRGB> icp;
+    pcl::IterativeClosestPointNonLinear<PointT, PointT> icp;
     icp.setInputSource(target_cloud);
     icp.setInputTarget(template_cloud);
     icp.setMaximumIterations(iters_);
@@ -34,7 +34,7 @@ bool ICPMatcher::matchClouds(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr& 
     icp.setTransformationEstimation(te2D);
 
     // perform ICP to refine template pose
-    matched_template_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+    matched_template_cloud.reset(new PointCloudT);
     try {
         icp.align(*matched_template_cloud);
     } catch (...) {

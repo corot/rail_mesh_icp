@@ -16,12 +16,13 @@
 
 class TemplateMatcher {
     public:
+        typedef actionlib::ActionServer<rail_mesh_icp::MatchTemplateAction> MatchTemplateActionServer;
+
         TemplateMatcher(ros::NodeHandle& pnh, std::string& matching_frame, std::string& pcl_topic,
                         std::string& template_file_path, tf::Transform& initial_estimate,
                         tf::Transform& template_offset, std::string& template_frame, bool visualize,
                         bool debug, bool latch, bool pre_processed_cloud, const ICPMatcher& icp_matcher);
 
-        typedef actionlib::ActionServer<rail_mesh_icp::MatchTemplateAction> MatchTemplateActionServer;
         // handles requests to match a template CAD model (in PCD form) to a point cloud from a point cloud topic
         void matchTemplateGoalCB(MatchTemplateActionServer::GoalHandle goal_handle);
 
@@ -33,7 +34,7 @@ class TemplateMatcher {
         tf2_ros::TransformListener tf_listener_;
         tf::Transform initial_estimate_;
         tf::Transform template_offset_;
-        std::vector<std::pair<std::string, pcl::PointCloud<pcl::PointXYZRGB>::Ptr>> template_clouds_;
+        std::vector<std::pair<std::string, PointCloudT::Ptr>> template_clouds_;
         bool viz_;
         bool debug_;
         bool latched_initial_estimate_;
