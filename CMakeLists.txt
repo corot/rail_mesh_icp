@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.10)
 project(rail_mesh_icp)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -64,7 +64,6 @@ add_definitions(${PCL_DEFINITIONS})
 set(LINK_LIBS
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
-    ${PCL_LIBRARIES}
     stdc++fs
 )
 
@@ -74,11 +73,11 @@ set(LINK_LIBS
 #target_link_libraries(icp_matcher_node ${LINK_LIBS})
 
 add_executable(template_matcher_node src/template_matcher_node.cpp src/TemplateMatching.cpp src/ICPMatching.cpp)
-add_dependencies(template_matcher_node ${catkin_EXPORTED_TARGETS} ${PCL_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies(template_matcher_node ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 target_link_libraries(template_matcher_node ${LINK_LIBS})
 
 add_executable(mesh_sampler_node tools/mesh_sampler_node.cpp)
-add_dependencies(mesh_sampler_node ${catkin_EXPORTED_TARGETS} ${PCL_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies(mesh_sampler_node ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 target_link_libraries(mesh_sampler_node ${LINK_LIBS})
 
 install(DIRECTORY include/${PROJECT_NAME}/

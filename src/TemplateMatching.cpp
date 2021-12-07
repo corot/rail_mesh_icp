@@ -13,6 +13,9 @@ TemplateMatcher::TemplateMatcher(ros::NodeHandle& pnh, std::string& matching_fra
                : tf_listener_(tf_), icp_matcher_(icp_matcher), thread_pool_(20),
                  as_(pnh, "match_template", boost::bind(&TemplateMatcher::matchTemplateGoalCB, this, _1), false)
 {
+    // silence PCL log error messages
+    pcl::console::setVerbosityLevel(pcl::console::L_ALWAYS);
+
     matching_frame_ = matching_frame;
     pcl_topic_ = pcl_topic;
     pre_processed_cloud_ = pre_processed_cloud;
